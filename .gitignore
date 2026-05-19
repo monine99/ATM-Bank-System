@@ -1,0 +1,10 @@
+# 编译产物
+*.class
+
+# 交易日志（运行时生成）
+transactions.log
+
+# IDE
+.idea/
+*.iml
+.vscode/
