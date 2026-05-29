@@ -4,6 +4,9 @@
 # 交易日志（运行时生成）
 transactions.log
 
+# 文档
+*.pdf
+
 # IDE
 .idea/
 *.iml

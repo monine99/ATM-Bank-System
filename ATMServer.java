@@ -59,6 +59,17 @@ public class ATMServer {
         }
 
         loadUserData();
+
+        if (userPasswords.isEmpty() || userBalances.isEmpty()) {
+            System.err.println("==============================================");
+            System.err.println("  致命错误: 无法加载用户数据，服务器拒绝启动");
+            System.err.println("  请确保在项目目录下运行: cd ATM/ && java ATMServer");
+            System.err.println("  当前目录: " + System.getProperty("user.dir"));
+            System.err.println("  缺少文件: users.txt 或 balances.txt");
+            System.err.println("==============================================");
+            System.exit(1);
+        }
+
         initTransactionLog();
         startMonitorThread();
 
@@ -83,7 +94,12 @@ public class ATMServer {
     }
 
     private static void loadUserData() {
-        try (BufferedReader br = new BufferedReader(new FileReader("users.txt"))) {
+        File userFile = resolveFile("users.txt");
+        File balFile = resolveFile("balances.txt");
+
+        System.out.println("[数据] 工作目录: " + System.getProperty("user.dir"));
+
+        try (BufferedReader br = new BufferedReader(new FileReader(userFile))) {
             String line;
             while ((line = br.readLine()) != null) {
                 String[] parts = line.trim().split("\\s+");
@@ -93,10 +109,10 @@ public class ATMServer {
             }
             System.out.println("[数据] 已加载 " + userPasswords.size() + " 个用户账户");
         } catch (IOException e) {
-            System.err.println("警告: 无法读取 users.txt");
+            System.err.println("警告: 无法读取 users.txt (路径: " + userFile.getAbsolutePath() + ")");
         }
 
-        try (BufferedReader br = new BufferedReader(new FileReader("balances.txt"))) {
+        try (BufferedReader br = new BufferedReader(new FileReader(balFile))) {
             String line;
             while ((line = br.readLine()) != null) {
                 String[] parts = line.trim().split("\\s+");
@@ -109,13 +125,31 @@ public class ATMServer {
             }
             System.out.println("[数据] 已加载 " + userBalances.size() + " 个余额记录");
         } catch (IOException e) {
-            System.err.println("警告: 无法读取 balances.txt");
+            System.err.println("警告: 无法读取 balances.txt (路径: " + balFile.getAbsolutePath() + ")");
         }
+    }
+
+    /**
+     * 解析文件：优先当前目录，其次 class 文件所在目录
+     */
+    private static File resolveFile(String filename) {
+        File f = new File(filename);
+        if (f.exists()) return f;
+
+        // 尝试 class 文件所在目录
+        try {
+            File classDir = new File(ATMServer.class.getProtectionDomain()
+                    .getCodeSource().getLocation().toURI()).getParentFile();
+            f = new File(classDir, filename);
+            if (f.exists()) return f;
+        } catch (Exception ignored) {
+        }
+        return new File(filename);
     }
 
     private static void initTransactionLog() {
         try {
-            transactionLog = new PrintWriter(new FileWriter("transactions.log", true), true);
+            transactionLog = new PrintWriter(new FileWriter(resolveFile("transactions.log"), true), true);
         } catch (IOException e) {
             System.err.println("警告: 无法创建交易日志文件");
         }
@@ -153,7 +187,7 @@ public class ATMServer {
     }
 
     private static synchronized void saveBalances() {
-        try (PrintWriter pw = new PrintWriter(new FileWriter("balances.txt"))) {
+        try (PrintWriter pw = new PrintWriter(new FileWriter(resolveFile("balances.txt")))) {
             for (Map.Entry<String, BigDecimal> entry : userBalances.entrySet()) {
                 pw.printf("%s %.2f%n", entry.getKey(), entry.getValue());
             }
@@ -194,7 +228,6 @@ public class ATMServer {
                         new InputStreamReader(socket.getInputStream()));
                  PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
 
-                out.println("WELCOME ATM Bank Server v2.0");
 
                 String line;
                 while ((line = in.readLine()) != null) {
